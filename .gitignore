@@ -3,7 +3,7 @@
 # Tristan Vanrullen — 2026
 # ─────────────────────────────────────────────
 
-# ── Python ──────────────────────────────────
+# ── Python ────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -18,39 +18,45 @@ dist/
 pip-wheel-metadata/
 MANIFEST
 
-# ── Environnements virtuels ──────────────────
-.env
+# ── Environnements virtuels (pip/venv) ─────────
 .venv
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
-# Conda (si envs locaux)
+
+# ── Conda ───────────────────────────────────
+# Dossiers d'environnement conda locaux (si créés dans le projet)
 conda-env/
 .conda/
+envs/
+# Fichier environment.yml généré automatiquement (non versionné par défaut)
+# Décommentez la ligne ci-dessous si vous ne voulez PAS versionner environment.yml
+# environment.yml
 
-# ── Variables d'environnement & secrets ──────
+# ── Variables d'environnement & secrets ────────
 .env
 .env.*
 *.env
 secrets.yaml
 secrets.json
 credentials.json
+.netrc
 
-# ── Jupyter ──────────────────────────────────
+# ── Jupyter ────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 profile_default/
 ipython_config.py
-# Conserver les .ipynb vides ou initiaux ; ignorer les outputs lourds
-# (pour exclure les outputs : utiliser nbstripout en CI)
+# Les outputs de notebooks sont nettoyés automatiquement
+# par nbstripout (hook git installé via `nbstripout --install`)
 
-# ── DuckDB ───────────────────────────────────
+# ── DuckDB ────────────────────────────────
 *.duckdb
 *.duckdb.wal
 
-# ── Données brutes & traitées ────────────────
+# ── Données brutes & traitées ─────────────────
 # Les datasets Kaggle et les fichiers générés ne sont pas versionnés
 data/raw/*.csv
 data/raw/*.parquet
@@ -82,17 +88,29 @@ mlflow/
 *.onnx
 models/artifacts/
 
-# ── Outils data quality ──────────────────────
+# ── Outils data quality ─────────────────────
 # Great Expectations
 great_expectations/.ge_store_backend_id
 great_expectations/uncommitted/
 
-# ── dbt ──────────────────────────────────────
+# Soda
+.soda/
+soda_project.yml.bak
+
+# ── dbt ────────────────────────────────────
+# Paquets dbt installés localement
 dbt_packages/
+# Dossier de compilation dbt
 target/
 dbt_project.yml.bak
+# Profil dbt local (contient des credentials)
+~/.dbt/profiles.yml
 
-# ── IDEs & éditeurs ──────────────────────────
+# ── OpenLineage ───────────────────────────
+.openlineage/
+openlineage.yml.bak
+
+# ── IDEs & éditeurs ────────────────────────
 .vscode/
 .idea/
 *.swp
@@ -101,7 +119,7 @@ dbt_project.yml.bak
 .DS_Store
 Thumbs.db
 
-# ── Tests & couverture ───────────────────────
+# ── Tests & couverture ─────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
@@ -109,12 +127,12 @@ htmlcov/
 coverage.xml
 *.cover
 
-# ── Mypy / type checking ─────────────────────
+# ── Mypy / type checking ───────────────────
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# ── Ruff / linters ───────────────────────────
+# ── Ruff / linters ─────────────────────────
 .ruff_cache/
 
 # ── Packaging & distribution ─────────────────
@@ -122,7 +140,7 @@ dmypy.json
 *.tar.gz
 *.zip
 
-# ── Documentation générée ────────────────────
+# ── Documentation générée ───────────────────
 docs/_build/
 site/
 
@@ -132,3 +150,17 @@ site/
 .LSOverride
 desktop.ini
 $RECYCLE.BIN/
+
+# ── FastAPI / Uvicorn ──────────────────────
+*.pid
+.uvicorn/
+
+# ── Airflow (Phase 3 optionnel) ──────────────
+airflow.cfg
+airflow.db
+airflow/dags/__pycache__/
+airflow/plugins/__pycache__/
+
+# ── Docker (Phase 3 optionnel) ──────────────
+.dockerignore
+docker-compose.override.yml
