@@ -59,7 +59,7 @@ def transform_dim_products(bronze_dir: Path) -> pd.DataFrame:
 
     # Nettoyage
     df.columns = df.columns.str.strip().str.lower()
-    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
     df.replace("", pd.NA, inplace=True)
 
     # Typage
@@ -90,7 +90,7 @@ def transform_dim_customers(bronze_dir: Path) -> pd.DataFrame:
     df, lineage = _drop_meta(_load_bronze(bronze_dir, "crm", "g_dim_customers"))
 
     df.columns = df.columns.str.strip().str.lower()
-    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
     df.replace("", pd.NA, inplace=True)
 
     # Typage
@@ -127,7 +127,7 @@ def transform_fact_sales(bronze_dir: Path) -> pd.DataFrame:
     df, lineage = _drop_meta(_load_bronze(bronze_dir, "erp", "g_fact_sales"))
 
     df.columns = df.columns.str.strip().str.lower()
-    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
     df.replace("", pd.NA, inplace=True)
 
     # Typage
@@ -166,7 +166,7 @@ def transform_crm_interactions(bronze_dir: Path) -> pd.DataFrame:
     df, lineage = _drop_meta(_load_bronze(bronze_dir, "crm", "g_crm_interactions"))
 
     df.columns = df.columns.str.strip().str.lower()
-    df = df.applymap(lambda x: x.strip() if isinstance(x, str) else x)
+    df = df.map(lambda x: x.strip() if isinstance(x, str) else x)
     df.replace("", pd.NA, inplace=True)
 
     for col in ["interaction_id", "customer_id"]:
