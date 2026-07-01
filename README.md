@@ -1,7 +1,7 @@
 # 🐙 Strategic Lakehouse
 
-> **Correction du projet Strategic Lakehouse**  
-> Transition d'un SI à l'ancienne vers une architecture data-driven  
+> **Projet pédagogique : Strategic Lakehouse**  
+> Transition d'un SI à l'ancienne vers une organisation et une architecture data-driven  
 > Master 2 Data-IA — La Plateforme_ Marseille  
 > Auteur : **Tristan Vanrullen** — 2026
 
@@ -9,7 +9,7 @@
 
 ## 🎯 Contexte
 
-Ce dépôt constitue la **correction de référence** du projet Strategic Lakehouse, sujet fil rouge du Master 2 Data-IA (RNCP 40573).  
+Ce dépôt constitue des **éléments de correction et de référence** pour le projet Strategic Lakehouse, sujet du Master 2 Data-IA).  
 Le cas d'étude fictif est **GlobalTrade Solutions**, entreprise dont le SI est fragmenté en trois silos (ERP on-premise, CRM SaaS, fichiers analytiques), et dont l'objectif est de devenir une organisation véritablement data-driven.
 
 ---
