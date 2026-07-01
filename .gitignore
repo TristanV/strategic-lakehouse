@@ -1,9 +1,9 @@
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # Strategic Lakehouse — .gitignore
 # Tristan Vanrullen — 2026
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 
-# ── Python ────────────────────────────────────
+# ── Python ────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
@@ -18,24 +18,24 @@ dist/
 pip-wheel-metadata/
 MANIFEST
 
-# ── Environnements virtuels (pip/venv) ─────────
-.venv
+# ── Environnements virtuels (pip/venv) ────────────────────────
+.venv/
 env/
 venv/
 ENV/
 env.bak/
 venv.bak/
 
-# ── Conda ───────────────────────────────────
+# ── Conda ─────────────────────────────────────────────────────
 # Dossiers d'environnement conda locaux (si créés dans le projet)
 conda-env/
 .conda/
 envs/
-# Fichier environment.yml généré automatiquement (non versionné par défaut)
-# Décommentez la ligne ci-dessous si vous ne voulez PAS versionner environment.yml
+# environment.yml est versionné (utile pour reproductibilité).
+# Décommentez la ligne ci-dessous pour l'ignorer si vous préférez
 # environment.yml
 
-# ── Variables d'environnement & secrets ────────
+# ── Variables d'environnement & secrets ───────────────────────
 .env
 .env.*
 *.env
@@ -44,28 +44,29 @@ secrets.json
 credentials.json
 .netrc
 
-# ── Jupyter ────────────────────────────────
+# ── Jupyter ───────────────────────────────────────────────────
 .ipynb_checkpoints/
 *.ipynb_checkpoints
 profile_default/
 ipython_config.py
 # Les outputs de notebooks sont nettoyés automatiquement
-# par nbstripout (hook git installé via `nbstripout --install`)
+# par nbstripout (hook git local : nbstripout --install)
 
-# ── DuckDB ────────────────────────────────
+# ── DuckDB ────────────────────────────────────────────────────
 *.duckdb
 *.duckdb.wal
 
-# ── Données brutes & traitées ─────────────────
-# Les datasets Kaggle et les fichiers générés ne sont pas versionnés
+# ── Données brutes & transformées ─────────────────────────────
+# Les datasets Kaggle et fichiers générés ne sont pas versionnés
 data/raw/*.csv
 data/raw/*.parquet
 data/raw/*.json
+data/raw/*.xlsx
 data/silver/*.parquet
 data/silver/*.csv
 data/gold/*.parquet
 data/gold/*.csv
-# Conserver les README et .gitkeep dans chaque dossier
+# Conserver les README et .gitkeep de chaque couche
 !data/raw/README.md
 !data/raw/.gitkeep
 !data/silver/README.md
@@ -73,14 +74,14 @@ data/gold/*.csv
 !data/gold/README.md
 !data/gold/.gitkeep
 
-# ── Logs & monitoring ────────────────────────
+# ── Logs & monitoring ─────────────────────────────────────────
 *.log
 logs/
 *.out
 airflow/logs/
 mlflow/
 
-# ── Artefacts ML / modèles ───────────────────
+# ── Artefacts ML / modèles ────────────────────────────────────
 *.pkl
 *.pickle
 *.joblib
@@ -88,29 +89,26 @@ mlflow/
 *.onnx
 models/artifacts/
 
-# ── Outils data quality ─────────────────────
-# Great Expectations
+# ── Great Expectations ────────────────────────────────────────
 great_expectations/.ge_store_backend_id
 great_expectations/uncommitted/
 
-# Soda
+# ── Soda ──────────────────────────────────────────────────────
 .soda/
 soda_project.yml.bak
 
-# ── dbt ────────────────────────────────────
-# Paquets dbt installés localement
+# ── dbt ───────────────────────────────────────────────────────
 dbt_packages/
-# Dossier de compilation dbt
 target/
 dbt_project.yml.bak
-# Profil dbt local (contient des credentials)
+# Le profil dbt contient des credentials — jamais versionné
 ~/.dbt/profiles.yml
 
-# ── OpenLineage ───────────────────────────
+# ── OpenLineage ───────────────────────────────────────────────
 .openlineage/
 openlineage.yml.bak
 
-# ── IDEs & éditeurs ────────────────────────
+# ── IDEs & éditeurs ───────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
@@ -118,8 +116,12 @@ openlineage.yml.bak
 *~
 .DS_Store
 Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+.AppleDouble
+.LSOverride
 
-# ── Tests & couverture ─────────────────────
+# ── Tests & couverture ────────────────────────────────────────
 .pytest_cache/
 .coverage
 htmlcov/
@@ -127,40 +129,44 @@ htmlcov/
 coverage.xml
 *.cover
 
-# ── Mypy / type checking ───────────────────
+# ── Mypy / type checking ──────────────────────────────────────
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# ── Ruff / linters ─────────────────────────
+# ── Ruff / linters ────────────────────────────────────────────
 .ruff_cache/
 
-# ── Packaging & distribution ─────────────────
+# ── Packaging & distribution ──────────────────────────────────
 *.whl
 *.tar.gz
 *.zip
 
-# ── Documentation générée ───────────────────
+# ── Documentation générée ─────────────────────────────────────
 docs/_build/
 site/
 
-# ── Fichiers temporaires OS ──────────────────
-.DS_Store
-.AppleDouble
-.LSOverride
-desktop.ini
-$RECYCLE.BIN/
-
-# ── FastAPI / Uvicorn ──────────────────────
+# ── FastAPI / Uvicorn ─────────────────────────────────────────
 *.pid
 .uvicorn/
 
-# ── Airflow (Phase 3 optionnel) ──────────────
+# ── Airflow (Phase 3 optionnel) ───────────────────────────────
 airflow.cfg
 airflow.db
 airflow/dags/__pycache__/
 airflow/plugins/__pycache__/
 
-# ── Docker (Phase 3 optionnel) ──────────────
+# ── Docker (Phase 3 optionnel) ────────────────────────────────
 .dockerignore
 docker-compose.override.yml
+
+# ── GitHub Actions (artefacts de build) ───────────────────────
+.github/workflow-artifacts/
+
+# ── Présentations & livrables temporaires ────────────────────
+*.pptx
+*.docx
+*.pdf
+# Garder les documents officiels dans documents/
+!documents/**
+!cadrage/**

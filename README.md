@@ -14,92 +14,183 @@ Le cas d'étude fictif est **GlobalTrade Solutions**, entreprise dont le SI est 
 
 ---
 
-## ⚡ Installation rapide — Environnement Conda
+## ⚡ Installation — Environnement Conda `strategic-lakehouse`
 
 ### Prérequis
 
-- [Miniconda](https://docs.conda.io/en/latest/miniconda.html) ou [Anaconda](https://www.anaconda.com/products/distribution) installé
-- Git installé
-- Python **3.11** (géré automatiquement par conda)
+| Outil | Version minimale | Installation |
+|---|---|---|
+| [Miniconda](https://docs.conda.io/en/latest/miniconda.html) ou [Anaconda](https://www.anaconda.com/) | ≥ 23.x | [docs.conda.io](https://docs.conda.io/en/latest/miniconda.html) |
+| Git | ≥ 2.40 | [git-scm.com](https://git-scm.com) |
+| Python | **3.11** (géré par conda) | — |
 
-### 1. Cloner le dépôt
+> ⚠️ **Attention Windows** : utiliser **Anaconda Prompt** ou **Git Bash** pour toutes les commandes ci-dessous.
+
+---
+
+### Étape 1 — Cloner le dépôt
 
 ```bash
 git clone https://github.com/TristanV/strategic-lakehouse.git
 cd strategic-lakehouse
 ```
 
-### 2. Créer l'environnement conda
+---
+
+### Étape 2 — Créer l'environnement conda
 
 ```bash
 conda create -n strategic-lakehouse python=3.11 -y
 ```
 
-### 3. Activer l'environnement
+Cela crée un environnement isolé nommé `strategic-lakehouse` avec Python 3.11.  
+Les environnements conda sont stockés dans `~/miniconda3/envs/` (ou `~/anaconda3/envs/`).
+
+---
+
+### Étape 3 — Activer l'environnement
 
 ```bash
 conda activate strategic-lakehouse
 ```
 
+Votre prompt doit afficher `(strategic-lakehouse)` en préfixe.
+
 > ℹ️ Pour désactiver l'environnement en fin de session : `conda deactivate`
 
-### 4. Installer les dépendances pip
+---
+
+### Étape 4 — Mettre à jour pip et installer les dépendances
 
 ```bash
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-### 5. Installer dbt (DuckDB adapter)
+Ce fichier installe toutes les bibliothèques du pipeline :
+- **pandas, numpy, pyarrow, duckdb** — ingestion et transformation de données
+- **fastapi, uvicorn, pydantic** — exposition des KPI via API REST
+- **great-expectations, soda-core** — qualité et contrats de données
+- **openlineage-python** — traçabilité du pipeline (data lineage)
+- **jupyterlab, plotly, matplotlib, seaborn** — exploration et visualisation
+- **pytest, ruff, mypy** — tests, linting, typage statique
+- **nbstripout, python-dotenv, loguru** — utilitaires
 
-> dbt-core et dbt-duckdb nécessitent une installation séparée car leur résolution de dépendances peut entrer en conflit avec certains paquets pip.
+> ⏱️ L'installation complète prend 3 à 8 minutes selon votre connexion.
+
+---
+
+### Étape 5 — Installer dbt (adapter DuckDB)
+
+> `dbt-core` et `dbt-duckdb` sont installés **séparément** pour éviter les conflits de résolution de dépendances.
 
 ```bash
 pip install dbt-core dbt-duckdb
 ```
 
-### 6. Configurer nbstripout (nettoyage des notebooks avant commit)
+Vérifier la version installée :
+
+```bash
+dbt --version
+```
+
+---
+
+### Étape 6 — Configurer nbstripout (hook git)
+
+`nbstripout` supprime automatiquement les outputs des notebooks Jupyter avant chaque commit, pour éviter de versionner des résultats d'exécution volumineux ou des données sensibles.
 
 ```bash
 nbstripout --install
 ```
 
-> Cela installe un hook git local qui supprime automatiquement les outputs des notebooks avant chaque commit.
+> Ce hook est local : il doit être réinstallé après chaque `git clone` ou `conda env create`.
 
-### 7. Vérifier l'installation
+---
+
+### Étape 7 — Vérifier l'installation
 
 ```bash
 python -c "import pandas, duckdb, fastapi, great_expectations; print('✅ Environnement OK')"
 dbt --version
 ```
 
-### 8. Lancer JupyterLab (optionnel)
+Résultat attendu :
+```
+✅ Environnement OK
+Core:
+  - installed: 1.x.x
+  - latest:    1.x.x - Up to date!
+```
+
+---
+
+### Étape 8 — Lancer JupyterLab (exploration)
 
 ```bash
 jupyter lab
 ```
 
+JupyterLab s'ouvre dans votre navigateur à `http://localhost:8888`.
+
 ---
 
-### 🔁 Réinitialiser l'environnement
+### Étape 9 — Lancer l'API FastAPI (exposition des KPI Gold)
 
-Si besoin de repartir de zéro :
+```bash
+uvicorn api.main:app --reload --port 8000
+```
+
+L'API est accessible à `http://localhost:8000` — documentation interactive : `http://localhost:8000/docs`.
+
+---
+
+### 🔁 Gestion de l'environnement
+
+#### Exporter l'environnement complet (reproductibilité)
+
+```bash
+conda env export > environment.yml
+```
+
+#### Recréer à partir de l'export
+
+```bash
+conda env create -f environment.yml
+conda activate strategic-lakehouse
+```
+
+#### Réinitialiser l'environnement (repartir de zéro)
 
 ```bash
 conda deactivate
 conda env remove -n strategic-lakehouse
-# puis reprendre à l'étape 2
+# puis reprendre à l'Étape 2
 ```
+
+#### Mettre à jour toutes les dépendances
+
+```bash
+conda activate strategic-lakehouse
+pip install --upgrade -r requirements.txt
+```
+
+---
 
 ### 📋 Résumé des commandes
 
 | Étape | Commande |
 |---|---|
+| Cloner | `git clone https://github.com/TristanV/strategic-lakehouse.git` |
 | Créer l'env | `conda create -n strategic-lakehouse python=3.11 -y` |
 | Activer | `conda activate strategic-lakehouse` |
-| Installer | `pip install -r requirements.txt` |
+| Installer | `pip install --upgrade pip && pip install -r requirements.txt` |
 | dbt | `pip install dbt-core dbt-duckdb` |
 | Hook notebooks | `nbstripout --install` |
+| Vérifier | `python -c "import pandas, duckdb, fastapi; print('OK')"` |
+| JupyterLab | `jupyter lab` |
+| API FastAPI | `uvicorn api.main:app --reload --port 8000` |
+| Exporter env | `conda env export > environment.yml` |
 | Désactiver | `conda deactivate` |
 | Supprimer l'env | `conda env remove -n strategic-lakehouse` |
 
@@ -112,6 +203,7 @@ strategic-lakehouse/
 ├── README.md                    ← Ce fichier
 ├── .gitignore                   ← Fichiers ignorés par git
 ├── requirements.txt             ← Dépendances Python (pip)
+├── environment.yml              ← Export conda (généré via conda env export)
 ├── documents/                   ← Roadmap, planification, livrables
 │   └── roadmap.md
 ├── data/                        ← Jeux de données du projet
@@ -119,8 +211,20 @@ strategic-lakehouse/
 │   ├── silver/                  ← Données nettoyées (non versionnées)
 │   ├── gold/                    ← Agrégats métier (non versionnées)
 │   └── README.md
-└── cadrage/                     ← CDC fonctionnel, spécifications, cadrage
-    └── README.md
+├── cadrage/                     ← CDC fonctionnel, spécifications, cadrage
+│   └── README.md
+├── pipeline/                    ← Scripts Python Bronze → Silver → Gold
+│   ├── bronze.py
+│   ├── silver.py
+│   └── gold.py
+├── api/                         ← API FastAPI (exposition KPI Gold)
+│   ├── main.py
+│   └── routers/
+├── tests/                       ← Pytest : pipeline, qualité, endpoints
+│   └── test_pipeline.py
+└── dbt/                         ← Transformations dbt (Phase 3)
+    ├── dbt_project.yml
+    └── models/
 ```
 
 ---
@@ -136,12 +240,10 @@ strategic-lakehouse/
 
 ---
 
-## 🏗️ Architecture cible
-
-L'architecture cible est un **Strategic Lakehouse** fondé sur le modèle médaille :
+## 🏗️ Architecture cible — Modèle Médaille
 
 ```
-Sources brutes (ERP, CRM, CSV)
+Sources brutes (ERP on-premise, CRM SaaS, fichiers CSV)
         │
         ▼
   ┌─────────────┐
@@ -182,7 +284,7 @@ Sources brutes (ERP, CRM, CSV)
 Le projet s'appuie sur le dataset **Cleaned Retail Customer Dataset (SQL-based ETL)**  
 disponible sur Kaggle : tables `g_dim_products`, `g_fact_sales`, `g_dim_customers` + CSV interactions.  
 
-Voir [`data/README.md`](data/README.md) pour les détails.
+Voir [`data/README.md`](data/README.md) pour les détails de téléchargement et de structure.
 
 ---
 
@@ -192,9 +294,10 @@ Voir [`data/README.md`](data/README.md) pour les détails.
 - [Databricks — Medallion Architecture](https://www.databricks.com/glossary/medallion-architecture) — Modèle Bronze/Silver/Gold
 - [FranceNum — Piloter son entreprise par les données](https://www.francenum.gouv.fr) — Recommandations institutionnelles françaises
 - [OpenLineage](https://openlineage.io) — Standard ouvert de data lineage
-- [dbt Labs](https://docs.getdbt.com) — Transformation SQL versionnée
-- [AI Act EU](https://artificialintelligenceact.eu) — Horizon réglementaire IA
+- [dbt Labs](https://docs.getdbt.com) — Transformation SQL versionnée et testée
 - [Great Expectations](https://greatexpectations.io) — Tests qualité des données
+- [Soda Core](https://www.soda.io/resources/soda-core) — Data contracts et règles de qualité
+- [AI Act EU](https://artificialintelligenceact.eu) — Horizon réglementaire IA 2026
 
 ---
 
