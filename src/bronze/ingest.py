@@ -22,6 +22,10 @@ logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Mapping sources → silos
+# Fichiers présents dans data/raw/ (layout confirmé 2026-07-01) :
+#   erp/       → g_dim_products.csv, g_fact_sales.csv
+#   crm/       → g_dim_customers.csv
+#   analytics/ → Customer_report_cleaned_data.csv, Product_report_cleaned_data.csv
 # ---------------------------------------------------------------------------
 SOURCE_MAP: dict[str, dict] = {
     "erp": {
@@ -29,11 +33,14 @@ SOURCE_MAP: dict[str, dict] = {
         "silo": "ERP_ONPREMISE",
     },
     "crm": {
-        "files": ["g_dim_customers.csv", "g_crm_interactions.csv"],
+        "files": ["g_dim_customers.csv"],
         "silo": "CRM_SAAS",
     },
     "analytics": {
-        "files": ["g_sales_aggregated.csv"],
+        "files": [
+            "Customer_report_cleaned_data.csv",
+            "Product_report_cleaned_data.csv",
+        ],
         "silo": "ANALYTICS_EXPORTS",
     },
 }
