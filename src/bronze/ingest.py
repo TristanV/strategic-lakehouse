@@ -45,6 +45,33 @@ SOURCE_MAP: dict[str, dict] = {
     },
 }
 
+# Séquence d'encodages à essayer dans l'ordre
+_ENCODINGS = ("utf-8", "utf-8-sig", "latin-1", "cp1252")
+
+
+def _read_csv_robust(src_path: Path) -> pd.DataFrame:
+    """Lit un CSV en testant successivement plusieurs encodages.
+
+    Tente UTF-8 en premier (standard recommandé Bronze), puis bascule
+    automatiquement sur Latin-1 / CP-1252 pour les fichiers Windows.
+    Toutes les colonnes sont conservées en str (typage Silver uniquement).
+    """
+    for enc in _ENCODINGS:
+        try:
+            df = pd.read_csv(src_path, dtype=str, keep_default_na=False, encoding=enc)
+            if enc != "utf-8":
+                logger.warning(
+                    "[BRONZE] %s — encodage UTF-8 échoué, lu avec %s",
+                    src_path.name,
+                    enc,
+                )
+            return df
+        except (UnicodeDecodeError, UnicodeError):
+            continue
+    raise ValueError(
+        f"Impossible de lire {src_path} : aucun encodage parmi {_ENCODINGS} n'a fonctionné."
+    )
+
 
 def ingest_csv_to_bronze(
     raw_dir: Path,
@@ -84,8 +111,8 @@ def ingest_csv_to_bronze(
 
             logger.info("[BRONZE] Ingestion de %s ...", src_path)
 
-            # Lecture verbatim — toutes colonnes en str pour préserver la donnée brute
-            df = pd.read_csv(src_path, dtype=str, keep_default_na=False)
+            # Lecture robuste — détection automatique de l'encodage
+            df = _read_csv_robust(src_path)
 
             # Métadonnées techniques d'ingestion
             df["_ingested_at"] = ingested_at
