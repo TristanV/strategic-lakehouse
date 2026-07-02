@@ -64,28 +64,64 @@ def _available_kpis() -> list[str]:
 
 def _sanitize(value: Any) -> Any:
     """
-    Convertit les types non-sérialisables JSON (NaN, Inf, numpy int/float)
-    en valeurs JSON valides.
+    Convertit en types JSON natifs :
+      - float NaN/Inf                → None
+      - numpy.integer / numpy.bool_  → int / bool Python
+      - numpy.floating               → float Python (NaN/Inf → None)
+      - pandas.Timestamp / NaT       → str ISO-8601 / None
+      - numpy.datetime64             → str ISO-8601
+      - datetime.date / datetime     → str ISO-8601
+    Tout autre type est retourné tel quel (str, int, float, bool, None).
     """
     if value is None:
         return None
-    # NaN / Inf float Python
+
+    # --- float Python natif ---
     if isinstance(value, float):
-        if math.isnan(value) or math.isinf(value):
-            return None
-        return value
-    # numpy / pandas scalar — conversion via int/float Python natif
+        return None if (math.isnan(value) or math.isinf(value)) else value
+
+    # --- numpy / pandas scalaires ---
     try:
-        import numpy as np  # optionnel — présent si pandas est installé
-        if isinstance(value, (np.integer,)):
+        import numpy as np
+        import pandas as pd
+
+        # NaT (pandas Not-a-Time) — doit être testé AVANT Timestamp
+        if value is pd.NaT:
+            return None
+
+        # pandas Timestamp
+        if isinstance(value, pd.Timestamp):
+            return value.isoformat()
+
+        # numpy datetime64
+        if isinstance(value, np.datetime64):
+            ts = pd.Timestamp(value)
+            return None if ts is pd.NaT else ts.isoformat()
+
+        # numpy integer
+        if isinstance(value, np.integer):
             return int(value)
-        if isinstance(value, (np.floating,)):
+
+        # numpy floating
+        if isinstance(value, np.floating):
             v = float(value)
             return None if (math.isnan(v) or math.isinf(v)) else v
+
+        # numpy bool
         if isinstance(value, np.bool_):
             return bool(value)
+
     except ImportError:
         pass
+
+    # --- datetime stdlib ---
+    try:
+        import datetime
+        if isinstance(value, (datetime.datetime, datetime.date)):
+            return value.isoformat()
+    except ImportError:
+        pass
+
     return value
 
 
