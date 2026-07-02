@@ -6,6 +6,7 @@ Exécute une suite d'expectations sur les Parquet Silver :
   - dim_products : unit_price > 0, product_id non-null + unique,
                    product_name non-null
 
+Compatible GX v1.x (API Fluent — EphemeralDataContext + Validator).
 Rapport HTML généré dans reports/gx/{table}_{timestamp}.html
 
 Auteur : Tristan Vanrullen — 2026
@@ -17,13 +18,37 @@ import logging
 from datetime import datetime, timezone
 from pathlib import Path
 
-import great_expectations as gx
-from great_expectations.core import ExpectationSuite
-from great_expectations.dataset import PandasDataset
-
 import pandas as pd
+import great_expectations as gx
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Helpers internes
+# ---------------------------------------------------------------------------
+
+def _get_validator(df: pd.DataFrame, suite_name: str):
+    """Crée un Validator GX v1.x éphémère sur un DataFrame Pandas.
+
+    GX v1.x remplace PandasDataset par un pipeline :
+      context → datasource → data_asset → batch_request → validator
+    On utilise un EphemeralDataContext (pas de filesystem GX nécessaire).
+    """
+    context = gx.get_context(mode="ephemeral")
+
+    datasource = context.sources.add_pandas(
+        name=f"ds_{suite_name}"
+    )
+    data_asset = datasource.add_dataframe_asset(name=f"asset_{suite_name}")
+    batch_request = data_asset.build_batch_request(dataframe=df)
+
+    suite = context.add_expectation_suite(expectation_suite_name=suite_name)
+    validator = context.get_validator(
+        batch_request=batch_request,
+        expectation_suite_name=suite_name,
+    )
+    return validator
 
 
 # ---------------------------------------------------------------------------
@@ -33,54 +58,44 @@ logger = logging.getLogger(__name__)
 def _build_fact_sales_suite() -> list[dict]:
     """Règles métier sur fact_sales Silver."""
     return [
-        # Clés non-nulles
-        {"expectation_type": "expect_column_values_to_not_be_null",
+        {"fn": "expect_column_values_to_not_be_null",
          "kwargs": {"column": "sale_id"}},
-        {"expectation_type": "expect_column_values_to_not_be_null",
+        {"fn": "expect_column_values_to_not_be_null",
          "kwargs": {"column": "customer_id"}},
-        {"expectation_type": "expect_column_values_to_not_be_null",
+        {"fn": "expect_column_values_to_not_be_null",
          "kwargs": {"column": "product_id"}},
-        # Unicité clé métier
-        {"expectation_type": "expect_column_values_to_be_unique",
+        {"fn": "expect_column_values_to_be_unique",
          "kwargs": {"column": "sale_id"}},
-        # Règles métier
-        {"expectation_type": "expect_column_values_to_be_between",
-         "kwargs": {"column": "total_amount", "min_value": 0.01, "max_value": None}},
-        {"expectation_type": "expect_column_values_to_be_between",
-         "kwargs": {"column": "quantity", "min_value": 1, "max_value": None}},
-        # Colonnes de linéage présentes
-        {"expectation_type": "expect_column_to_exist",
+        {"fn": "expect_column_values_to_be_between",
+         "kwargs": {"column": "total_amount", "min_value": 0.01}},
+        {"fn": "expect_column_values_to_be_between",
+         "kwargs": {"column": "quantity", "min_value": 1.0}},
+        {"fn": "expect_column_to_exist",
          "kwargs": {"column": "_source_silo"}},
-        {"expectation_type": "expect_column_to_exist",
+        {"fn": "expect_column_to_exist",
          "kwargs": {"column": "_silver_processed_at"}},
-        # Volume minimal
-        {"expectation_type": "expect_table_row_count_to_be_between",
-         "kwargs": {"min_value": 1, "max_value": None}},
+        {"fn": "expect_table_row_count_to_be_between",
+         "kwargs": {"min_value": 1}},
     ]
 
 
 def _build_dim_products_suite() -> list[dict]:
     """Règles métier sur dim_products Silver."""
     return [
-        # Clé non-nulle + unique
-        {"expectation_type": "expect_column_values_to_not_be_null",
+        {"fn": "expect_column_values_to_not_be_null",
          "kwargs": {"column": "product_id"}},
-        {"expectation_type": "expect_column_values_to_be_unique",
+        {"fn": "expect_column_values_to_be_unique",
          "kwargs": {"column": "product_id"}},
-        # Libellé non-null
-        {"expectation_type": "expect_column_values_to_not_be_null",
+        {"fn": "expect_column_values_to_not_be_null",
          "kwargs": {"column": "product_name"}},
-        # Prix cohérent
-        {"expectation_type": "expect_column_values_to_be_between",
-         "kwargs": {"column": "unit_price", "min_value": 0.01, "max_value": None}},
-        # Colonnes linéage
-        {"expectation_type": "expect_column_to_exist",
+        {"fn": "expect_column_values_to_be_between",
+         "kwargs": {"column": "unit_price", "min_value": 0.01}},
+        {"fn": "expect_column_to_exist",
          "kwargs": {"column": "_source_silo"}},
-        {"expectation_type": "expect_column_to_exist",
+        {"fn": "expect_column_to_exist",
          "kwargs": {"column": "_silver_processed_at"}},
-        # Volume
-        {"expectation_type": "expect_table_row_count_to_be_between",
-         "kwargs": {"min_value": 1, "max_value": None}},
+        {"fn": "expect_table_row_count_to_be_between",
+         "kwargs": {"min_value": 1}},
     ]
 
 
@@ -94,24 +109,23 @@ def _run_suite(
     table_name: str,
     report_dir: Path,
 ) -> dict:
-    """Exécute une suite GX sur un DataFrame et génère le rapport HTML."""
-    dataset = PandasDataset(df)
+    """Exécute une suite GX v1.x sur un DataFrame et génère le rapport HTML."""
+    validator = _get_validator(df, suite_name=f"suite_{table_name}")
     results: list[dict] = []
 
     for rule in suite_rules:
-        expectation_fn = getattr(dataset, rule["expectation_type"])
+        expectation_fn = getattr(validator, rule["fn"])
         result = expectation_fn(**rule["kwargs"])
         passed = result["success"]
         results.append({
-            "expectation": rule["expectation_type"],
+            "expectation": rule["fn"],
             "kwargs": rule["kwargs"],
             "success": passed,
-            "result": result.get("result", {}),
+            "result": result.result if hasattr(result, "result") else {},
         })
         status = "✅" if passed else "❌"
-        logger.info("[GX] %s %s %s", status, table_name, rule["expectation_type"])
+        logger.info("[GX] %s %s  %s", status, table_name, rule["fn"])
 
-    # --- Rapport HTML
     report_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     html_path = report_dir / f"{table_name}_{ts}.html"
@@ -136,8 +150,8 @@ def _write_html_report(table_name: str, results: list[dict], path: Path) -> None
         icon = "✅" if r["success"] else "❌"
         bg = "#e6f4ea" if r["success"] else "#fce8e6"
         rows.append(
-            f'<tr style="background:{bg}">'  
-            f'<td>{icon}</td>'
+            f'<tr style="background:{bg}">'
+            f"<td>{icon}</td>"
             f'<td><code>{r["expectation"]}</code></td>'
             f'<td><code>{r["kwargs"]}</code></td>'
             f'<td>{r["result"]}</td>'
@@ -154,11 +168,11 @@ def _write_html_report(table_name: str, results: list[dict], path: Path) -> None
   <title>GX Report — {table_name}</title>
   <style>
     body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 2rem; color: #2B2B33; }}
-    h1 {{ color: #1454F5; }}
+    h1   {{ color: #1454F5; }}
     .summary {{ display: flex; gap: 2rem; margin-bottom: 1.5rem; }}
     .badge {{ padding: .4rem 1rem; border-radius: 6px; font-weight: 700; font-size: 1.1rem; }}
-    .ok {{ background: #e6f4ea; color: #137333; }}
-    .ko {{ background: #fce8e6; color: #c5221f; }}
+    .ok  {{ background: #e6f4ea; color: #137333; }}
+    .ko  {{ background: #fce8e6; color: #c5221f; }}
     table {{ border-collapse: collapse; width: 100%; font-size: .92rem; }}
     th {{ background: #1454F5; color: #fff; padding: .5rem .8rem; text-align: left; }}
     td {{ padding: .45rem .8rem; border-bottom: 1px solid #e0e0e0; vertical-align: top; }}
@@ -180,7 +194,7 @@ def _write_html_report(table_name: str, results: list[dict], path: Path) -> None
       {rows_html}
     </tbody>
   </table>
-  <footer>Généré par src/quality/gx_checkpoint.py · Tristan Vanrullen · 2026</footer>
+  <footer>Généré par src/quality/gx_checkpoint.py · GX v1.x API · Tristan Vanrullen · 2026</footer>
 </body>
 </html>
 """
@@ -238,12 +252,11 @@ def run_gx_checkpoint(
 
 if __name__ == "__main__":
     import argparse
-    import json
 
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     parser = argparse.ArgumentParser(
-        description="Great Expectations — Checkpoint couche Silver"
+        description="Great Expectations v1.x — Checkpoint couche Silver"
     )
     parser.add_argument(
         "--silver-dir",
