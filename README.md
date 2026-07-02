@@ -14,6 +14,23 @@ Le cas d'étude fictif est **GlobalTrade Solutions**, entreprise dont le SI est 
 
 ---
 
+## 🚦 État d'avancement (2 juillet 2026)
+
+| Couche | Statut | Fichiers |
+|---|---|---|
+| **Bronze** — Ingestion CSV → Parquet | ✅ Terminé | `src/bronze/ingest.py`, `src/bronze/generate_crm_interactions.py` |
+| **Silver** — Nettoyage, typage, PII | ✅ Terminé | `src/silver/transform.py` |
+| **Gold** — Agrégats KPI métier | 🔴 À faire | `src/gold/aggregate.py` (à créer) |
+| **API** — FastAPI exposition KPI | 🔴 À faire | `api/main.py` (à créer) |
+| **Tests pytest** | 🔴 À faire | `tests/` (à compléter) |
+| **Qualité GX / Soda** | 🔴 À faire | — |
+| **Lineage OpenLineage** | 🔴 À faire | — |
+| **Présentation COMEX** | 🟡 Plan fait | `documents/roadmap.md` |
+
+> 📋 Voir la [Roadmap complète](documents/roadmap.md) pour le détail des prochaines étapes.
+
+---
+
 ## ⚡ Installation — Environnement Conda `strategic-lakehouse`
 
 ### Prérequis
@@ -43,9 +60,6 @@ cd strategic-lakehouse
 conda create -n strategic-lakehouse python=3.11 -y
 ```
 
-Cela crée un environnement isolé nommé `strategic-lakehouse` avec Python 3.11.  
-Les environnements conda sont stockés dans `~/miniconda3/envs/` (ou `~/anaconda3/envs/`).
-
 ---
 
 ### Étape 3 — Activer l'environnement
@@ -53,10 +67,6 @@ Les environnements conda sont stockés dans `~/miniconda3/envs/` (ou `~/anaconda
 ```bash
 conda activate strategic-lakehouse
 ```
-
-Votre prompt doit afficher `(strategic-lakehouse)` en préfixe.
-
-> ℹ️ Pour désactiver l'environnement en fin de session : `conda deactivate`
 
 ---
 
@@ -76,21 +86,12 @@ Ce fichier installe toutes les bibliothèques du pipeline :
 - **pytest, ruff, mypy** — tests, linting, typage statique
 - **nbstripout, python-dotenv, loguru** — utilitaires
 
-> ⏱️ L'installation complète prend 3 à 8 minutes selon votre connexion.
-
 ---
 
 ### Étape 5 — Installer dbt (adapter DuckDB)
 
-> `dbt-core` et `dbt-duckdb` sont installés **séparément** pour éviter les conflits de résolution de dépendances.
-
 ```bash
 pip install dbt-core dbt-duckdb
-```
-
-Vérifier la version installée :
-
-```bash
 dbt --version
 ```
 
@@ -98,13 +99,9 @@ dbt --version
 
 ### Étape 6 — Configurer nbstripout (hook git)
 
-`nbstripout` supprime automatiquement les outputs des notebooks Jupyter avant chaque commit, pour éviter de versionner des résultats d'exécution volumineux ou des données sensibles.
-
 ```bash
 nbstripout --install
 ```
-
-> Ce hook est local : il doit être réinstallé après chaque `git clone` ou `conda env create`.
 
 ---
 
@@ -115,65 +112,32 @@ python -c "import pandas, duckdb, fastapi, great_expectations; print('✅ Enviro
 dbt --version
 ```
 
-Résultat attendu :
-```
-✅ Environnement OK
-Core:
-  - installed: 1.x.x
-  - latest:    1.x.x - Up to date!
-```
-
 ---
 
-### Étape 8 — Lancer JupyterLab (exploration)
+### Étape 8 — Lancer le pipeline Bronze → Silver
 
 ```bash
-jupyter lab
-```
+# 1. Générer les données Bronze (CSV → Parquet)
+python src/bronze/ingest.py
 
-JupyterLab s'ouvre dans votre navigateur à `http://localhost:8888`.
+# 2. Générer les interactions CRM synthétiques
+python src/bronze/generate_crm_interactions.py
+
+# 3. Transformer Bronze → Silver
+python src/silver/transform.py
+```
 
 ---
 
 ### Étape 9 — Lancer l'API FastAPI (exposition des KPI Gold)
 
+> ⚠️ La couche Gold et l'API sont en cours d'implémentation.
+
 ```bash
 uvicorn api.main:app --reload --port 8000
 ```
 
-L'API est accessible à `http://localhost:8000` — documentation interactive : `http://localhost:8000/docs`.
-
----
-
-### 🔁 Gestion de l'environnement
-
-#### Exporter l'environnement complet (reproductibilité)
-
-```bash
-conda env export > environment.yml
-```
-
-#### Recréer à partir de l'export
-
-```bash
-conda env create -f environment.yml
-conda activate strategic-lakehouse
-```
-
-#### Réinitialiser l'environnement (repartir de zéro)
-
-```bash
-conda deactivate
-conda env remove -n strategic-lakehouse
-# puis reprendre à l'Étape 2
-```
-
-#### Mettre à jour toutes les dépendances
-
-```bash
-conda activate strategic-lakehouse
-pip install --upgrade -r requirements.txt
-```
+L'API sera accessible à `http://localhost:8000` — documentation interactive : `http://localhost:8000/docs`.
 
 ---
 
@@ -188,11 +152,13 @@ pip install --upgrade -r requirements.txt
 | dbt | `pip install dbt-core dbt-duckdb` |
 | Hook notebooks | `nbstripout --install` |
 | Vérifier | `python -c "import pandas, duckdb, fastapi; print('OK')"` |
-| JupyterLab | `jupyter lab` |
+| Bronze | `python src/bronze/ingest.py` |
+| CRM synth. | `python src/bronze/generate_crm_interactions.py` |
+| Silver | `python src/silver/transform.py` |
 | API FastAPI | `uvicorn api.main:app --reload --port 8000` |
-| Exporter env | `conda env export > environment.yml` |
+| Tests | `pytest tests/ -v` |
+| Linting | `ruff check src/ api/ tests/` |
 | Désactiver | `conda deactivate` |
-| Supprimer l'env | `conda env remove -n strategic-lakehouse` |
 
 ---
 
@@ -201,42 +167,44 @@ pip install --upgrade -r requirements.txt
 ```
 strategic-lakehouse/
 ├── README.md                    ← Ce fichier
-├── .gitignore                   ← Fichiers ignorés par git
+├── .gitignore
 ├── requirements.txt             ← Dépendances Python (pip)
-├── environment.yml              ← Export conda (généré via conda env export)
-├── documents/                   ← Roadmap, planification, livrables
-│   └── roadmap.md
-├── data/                        ← Jeux de données du projet
-│   ├── raw/                     ← Données brutes (non versionnées)
-│   ├── silver/                  ← Données nettoyées (non versionnées)
-│   ├── gold/                    ← Agrégats métier (non versionnées)
-│   └── README.md
-├── cadrage/                     ← CDC fonctionnel, spécifications, cadrage
-│   └── README.md
-├── pipeline/                    ← Scripts Python Bronze → Silver → Gold
-│   ├── bronze.py
-│   ├── silver.py
-│   └── gold.py
-├── api/                         ← API FastAPI (exposition KPI Gold)
-│   ├── main.py
+├── cadrage/                     ← CDC fonctionnel, glossaire, cadrage
+│   ├── README.md
+│   ├── cdc_fonctionnel.md
+│   └── glossaire_data.md
+├── data/                        ← Jeux de données (non versionnés sauf .gitkeep)
+│   ├── raw/                     ← CSV sources (ERP, CRM, analytics)
+│   ├── bronze/                  ← Parquet bruts ingérés
+│   │   ├── erp/
+│   │   ├── crm/
+│   │   └── analytics/
+│   ├── silver/                  ← Parquet nettoyés et typés
+│   └── gold/                    ← Parquet agrégats KPI (à créer)
+├── documents/
+│   └── roadmap.md               ← Roadmap et suivi d'avancement
+├── src/
+│   ├── __init__.py
+│   ├── bronze/
+│   │   ├── __init__.py
+│   │   ├── ingest.py            ✅ CSV → Parquet avec métadonnées
+│   │   ├── generate_crm_interactions.py  ✅ Données CRM synthétiques
+│   │   └── profiling.py         ✅ Profil statistique Bronze
+│   └── silver/
+│       ├── __init__.py
+│       └── transform.py         ✅ Nettoyage, typage, PII, jointures
+├── src/gold/                    🔴 À créer
+│   └── aggregate.py             ← KPI métier → data/gold/
+├── api/                         🔴 À créer
+│   ├── main.py                  ← Application FastAPI
 │   └── routers/
-├── tests/                       ← Pytest : pipeline, qualité, endpoints
+│       └── kpi.py               ← Endpoints KPI
+├── tests/                       🔴 À compléter
 │   └── test_pipeline.py
-└── dbt/                         ← Transformations dbt (Phase 3)
+└── dbt/                         🟡 Phase 3 optionnelle
     ├── dbt_project.yml
     └── models/
 ```
-
----
-
-## 🗺️ Les 4 phases du projet
-
-| Phase | Intitulé | Livrables principaux |
-|---|---|---|
-| **1** | Diagnostic SI + Benchmark archi | Cartographie, comparatif DWH/Lake/Lakehouse |
-| **2** | Spécification technique | CDC MoSCoW, matrice risques, accessibilité |
-| **3** | Conception + POC | Schémas C4/UML, pipeline Bronze→Silver→Gold→API |
-| **4** | Présentation COMEX | 15-20 slides, soutenance CTO/CDO fictifs |
 
 ---
 
@@ -247,19 +215,32 @@ Sources brutes (ERP on-premise, CRM SaaS, fichiers CSV)
         │
         ▼
   ┌─────────────┐
-  │   BRONZE    │  Ingestion brute, format natif, traçabilité totale
-  └──────┬──────┘
+  │   BRONZE    │  ✅  Ingestion brute, format Parquet, traçabilité totale
+  └──────┬──────┘      src/bronze/ingest.py + generate_crm_interactions.py
          ▼
   ┌─────────────┐
-  │   SILVER    │  Nettoyage, typage, dédoublonnage, jointures
-  └──────┬──────┘
+  │   SILVER    │  ✅  Nettoyage, typage, dédoublonnage, PII
+  └──────┬──────┘      src/silver/transform.py
          ▼
   ┌─────────────┐
-  │    GOLD     │  Agrégats métier, KPI, exposition API / BI
-  └──────┬──────┘
+  │    GOLD     │  🔴  Agrégats métier, KPI → À implémenter
+  └──────┬──────┘      src/gold/aggregate.py
          ▼
-   API Flask/FastAPI  ──▶  BI / Agents IA
+   API FastAPI   🔴  À implémenter → api/main.py
+         ▼
+   BI / Agents IA
 ```
+
+---
+
+## 🗺️ Les 4 phases du projet
+
+| Phase | Intitulé | Statut |
+|---|---|---|
+| **1** | Bronze (ingestion) + Silver (transformation) | ✅ **Terminé** |
+| **2** | Gold (KPI) + API FastAPI | 🔴 **À faire — priorité 1** |
+| **3** | Tests pytest + Qualité GX/Soda + Lineage | 🔴 **À faire — priorité 2** |
+| **4** | Présentation COMEX 15–20 slides + soutenance | 🟡 **Plan rédigé** |
 
 ---
 
@@ -267,22 +248,23 @@ Sources brutes (ERP on-premise, CRM SaaS, fichiers CSV)
 
 | Domaine | Outils retenus |
 |---|---|
-| Ingestion / ELT | Python, DuckDB, Pandas, Airbyte |
+| Ingestion / ELT | Python, DuckDB, Pandas, PyArrow |
 | Transformation | dbt (Data Build Tool) |
-| Format ouvert | Apache Iceberg / Delta Lake / Parquet |
+| Format ouvert | Apache Parquet / Iceberg |
 | Qualité | Great Expectations, Soda |
 | Lineage | OpenLineage |
-| Exposition | Flask / FastAPI |
+| Exposition | FastAPI + Uvicorn |
+| Tests | pytest, ruff |
 | Orchestration | Apache Airflow |
 | CI/CD | GitHub Actions |
-| Observabilité | Grafana + Prometheus |
 
 ---
 
 ## 📊 Dataset de référence
 
 Le projet s'appuie sur le dataset **Cleaned Retail Customer Dataset (SQL-based ETL)**  
-disponible sur Kaggle : tables `g_dim_products`, `g_fact_sales`, `g_dim_customers` + CSV interactions.  
+disponible sur Kaggle : tables `g_dim_products`, `g_fact_sales`, `g_dim_customers` + rapports analytiques CSV.  
+Les interactions CRM (`g_crm_interactions`, ~20 000 lignes) sont générées synthétiquement par `src/bronze/generate_crm_interactions.py`.
 
 Voir [`data/README.md`](data/README.md) pour les détails de téléchargement et de structure.
 
