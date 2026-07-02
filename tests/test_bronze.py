@@ -33,7 +33,6 @@ from src.bronze.ingest import ingest_csv_to_bronze
 
 # ---------------------------------------------------------------------------
 # Fixture : raw_dir minimal
-# Crée un data/raw/ synthétique avec les 3 CSV sources attendus.
 # ---------------------------------------------------------------------------
 
 CSV_PRODUCTS = """product_id,product_name,category,cost
@@ -79,29 +78,30 @@ def ingest_stats(raw_dir, bronze_dir) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Helpers
+# Helper dtype
 # ---------------------------------------------------------------------------
 
-# Dtypes acceptés pour une colonne "chaîne sans typage métier".
-# - 'object'        : Pandas classique (numpy backend)
-# - 'string'        : Pandas StringDtype (pd.StringDtype())
-# - 'string[python]': variante explicite
-# - 'string[pyarrow]': PyArrow backend (to_parquet engine=pyarrow, read_parquet)
-# Tout autre dtype (int64, float64, datetime64, bool) signifie qu'une
-# conversion métier a été appliquée — interdit en Bronze.
-_STRING_DTYPES = {"object", "string", "string[python]", "string[pyarrow]", "large_string[pyarrow]"}
+# Représentations string acceptées pour une colonne "chaîne sans typage métier".
+_STRING_DTYPES = {
+    "object",
+    "string",
+    "string[python]",
+    "string[pyarrow]",
+    "large_string[pyarrow]",
+}
 
 
 def _is_string_dtype(series: pd.Series) -> bool:
-    """Retourne True si la colonne est de type chaîne (quelle que soit l'implémentation)."""
-    dtype_str = str(series.dtype)
-    if dtype_str in _STRING_DTYPES:
+    """
+    Retourne True si la série est de type chaîne,
+    indépendamment du backend Pandas (numpy ou PyArrow).
+    """
+    if str(series.dtype) in _STRING_DTYPES:
         return True
-    # Fallback : ArrowDtype avec pa.string() ou pa.large_string()
+    # Fallback pour pd.ArrowDtype avec pa.string() / pa.large_string()
     try:
         import pyarrow as pa
-        import pandas as pd as _pd
-        if isinstance(series.dtype, _pd.ArrowDtype):
+        if isinstance(series.dtype, pd.ArrowDtype):
             return pa.types.is_string(series.dtype.pyarrow_dtype) or pa.types.is_large_string(
                 series.dtype.pyarrow_dtype
             )
@@ -147,11 +147,11 @@ def test_ingest_metadata_columns(ingest_stats, bronze_dir):
 def test_ingest_all_columns_string_type(ingest_stats, bronze_dir):
     """
     Bronze = aucune transformation métier.
-    Toutes les colonnes métier doivent être de type chaîne (str).
+    Toutes les colonnes métier doivent être de type chaîne.
 
-    PyArrow (engine par défaut) peut produire dtype 'string[pyarrow]' au lieu
-    de 'object' — les deux sont acceptés car ils indiquent que la colonne
-    n'a subi aucun cast numérique ou temporel.
+    PyArrow peut produire 'string[pyarrow]' au lieu de 'object' :
+    les deux sont acceptés car ils indiquent qu'aucun cast numérique
+    ou temporel n'a été appliqué.
     """
     meta_cols = {"_ingested_at", "_source_file", "_source_silo", "_run_id"}
     for silo_folder in ("erp", "crm"):
