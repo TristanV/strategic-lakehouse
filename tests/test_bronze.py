@@ -6,16 +6,23 @@ Couverture :
   - test_ingest_metadata_columns     : colonnes techniques _ingested_at, _source_file,
                                        _source_silo, _run_id présentes
   - test_ingest_no_transformation    : toutes les colonnes métier sont en str
+                                       (dtype object OU string/pyarrow — les deux
+                                        correspondent à des chaînes sans typage métier)
   - test_ingest_idempotent           : deux exécutions successives = même résultat
   - test_ingest_row_count_consistent : le nb de lignes Bronze = nb de lignes CSV source
   - test_ingest_missing_file_skipped : un fichier manquant est ignoré sans crash
+
+Note sur les dtypes Bronze :
+  PyArrow (engine par défaut de to_parquet) peut encoder les colonnes string
+  en dtype 'string[pyarrow]' plutôt que 'object'. Les deux sont valides :
+  ils représentent des chaînes sans typage métier appliqué — pas de cast
+  numérique ou temporel. Le test accepte les deux formes.
 
 Auteur : Tristan Vanrullen — 2026
 """
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
 
 import pandas as pd
@@ -72,6 +79,38 @@ def ingest_stats(raw_dir, bronze_dir) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+# Dtypes acceptés pour une colonne "chaîne sans typage métier".
+# - 'object'        : Pandas classique (numpy backend)
+# - 'string'        : Pandas StringDtype (pd.StringDtype())
+# - 'string[python]': variante explicite
+# - 'string[pyarrow]': PyArrow backend (to_parquet engine=pyarrow, read_parquet)
+# Tout autre dtype (int64, float64, datetime64, bool) signifie qu'une
+# conversion métier a été appliquée — interdit en Bronze.
+_STRING_DTYPES = {"object", "string", "string[python]", "string[pyarrow]", "large_string[pyarrow]"}
+
+
+def _is_string_dtype(series: pd.Series) -> bool:
+    """Retourne True si la colonne est de type chaîne (quelle que soit l'implémentation)."""
+    dtype_str = str(series.dtype)
+    if dtype_str in _STRING_DTYPES:
+        return True
+    # Fallback : ArrowDtype avec pa.string() ou pa.large_string()
+    try:
+        import pyarrow as pa
+        import pandas as pd as _pd
+        if isinstance(series.dtype, _pd.ArrowDtype):
+            return pa.types.is_string(series.dtype.pyarrow_dtype) or pa.types.is_large_string(
+                series.dtype.pyarrow_dtype
+            )
+    except (ImportError, AttributeError):
+        pass
+    return False
+
+
+# ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
 
@@ -108,19 +147,22 @@ def test_ingest_metadata_columns(ingest_stats, bronze_dir):
 def test_ingest_all_columns_string_type(ingest_stats, bronze_dir):
     """
     Bronze = aucune transformation métier.
-    Toutes les colonnes métier (hors métadonnées) doivent être en dtype object (str).
+    Toutes les colonnes métier doivent être de type chaîne (str).
+
+    PyArrow (engine par défaut) peut produire dtype 'string[pyarrow]' au lieu
+    de 'object' — les deux sont acceptés car ils indiquent que la colonne
+    n'a subi aucun cast numérique ou temporel.
     """
     meta_cols = {"_ingested_at", "_source_file", "_source_silo", "_run_id"}
     for silo_folder in ("erp", "crm"):
         for parquet_path in (bronze_dir / silo_folder).glob("*.parquet"):
             df = pd.read_parquet(parquet_path)
             biz_cols = [c for c in df.columns if c not in meta_cols]
-            non_str = [
-                c for c in biz_cols
-                if str(df[c].dtype) not in ("object", "string")
-            ]
+            non_str = [c for c in biz_cols if not _is_string_dtype(df[c])]
             assert not non_str, (
-                f"{parquet_path.name} : colonnes métier non-str (Bronze ne doit pas typer) : {non_str}"
+                f"{parquet_path.name} : colonnes métier non-str "
+                f"(Bronze ne doit pas typer) : "
+                f"{[(c, str(df[c].dtype)) for c in non_str]}"
             )
 
 
@@ -145,11 +187,9 @@ def test_ingest_missing_file_skipped(bronze_dir, tmp_path):
     (partial_raw / "erp").mkdir(parents=True)
     (partial_raw / "crm").mkdir()
     (partial_raw / "analytics").mkdir()
-    # Seulement g_dim_products.csv, les autres sont manquants
     (partial_raw / "erp" / "g_dim_products.csv").write_text(CSV_PRODUCTS, encoding="utf-8")
     partial_bronze = tmp_path / "partial_bronze"
     partial_bronze.mkdir()
-    # Ne doit pas lever d'exception
     stats = ingest_csv_to_bronze(raw_dir=partial_raw, bronze_dir=partial_bronze)
     assert "g_dim_products" in stats
     assert stats["g_dim_products"] == 3
