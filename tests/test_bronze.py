@@ -6,17 +6,17 @@ Couverture :
   - test_ingest_metadata_columns     : colonnes techniques _ingested_at, _source_file,
                                        _source_silo, _run_id présentes
   - test_ingest_no_transformation    : toutes les colonnes métier sont en str
-                                       (dtype object OU string/pyarrow — les deux
+                                       (dtype object / string / str / pyarrow — tous
                                         correspondent à des chaînes sans typage métier)
   - test_ingest_idempotent           : deux exécutions successives = même résultat
   - test_ingest_row_count_consistent : le nb de lignes Bronze = nb de lignes CSV source
   - test_ingest_missing_file_skipped : un fichier manquant est ignoré sans crash
 
 Note sur les dtypes Bronze :
-  PyArrow (engine par défaut de to_parquet) peut encoder les colonnes string
-  en dtype 'string[pyarrow]' plutôt que 'object'. Les deux sont valides :
-  ils représentent des chaînes sans typage métier appliqué — pas de cast
-  numérique ou temporel. Le test accepte les deux formes.
+  Selon la version de Pandas et le backend (numpy vs PyArrow), str(dtype) peut
+  valoir 'object', 'string', 'str', 'string[python]', 'string[pyarrow]'.
+  Tous sont acceptés : aucun n'implique de cast numérique ou temporel.
+  Pandas 2.x avec PyArrow représente pd.StringDtype() comme 'str'.
 
 Auteur : Tristan Vanrullen — 2026
 """
@@ -81,9 +81,16 @@ def ingest_stats(raw_dir, bronze_dir) -> dict:
 # Helper dtype
 # ---------------------------------------------------------------------------
 
-# Représentations string acceptées pour une colonne "chaîne sans typage métier".
+# Toutes les représentations acceptées pour "colonne chaîne sans typage métier" :
+#   'object'          — numpy backend, Pandas classique
+#   'string'          — pd.StringDtype() repr avant Pandas 2.x
+#   'str'             — pd.StringDtype() repr dans Pandas 2.x (nouveau comportement)
+#   'string[python]'  — alias explicite StringDtype python backend
+#   'string[pyarrow]' — StringDtype avec backend PyArrow
+#   'large_string[pyarrow]' — variante large PyArrow
 _STRING_DTYPES = {
     "object",
+    "str",
     "string",
     "string[python]",
     "string[pyarrow]",
@@ -94,7 +101,7 @@ _STRING_DTYPES = {
 def _is_string_dtype(series: pd.Series) -> bool:
     """
     Retourne True si la série est de type chaîne,
-    indépendamment du backend Pandas (numpy ou PyArrow).
+    indépendamment du backend Pandas (numpy, python, PyArrow).
     """
     if str(series.dtype) in _STRING_DTYPES:
         return True
@@ -102,8 +109,9 @@ def _is_string_dtype(series: pd.Series) -> bool:
     try:
         import pyarrow as pa
         if isinstance(series.dtype, pd.ArrowDtype):
-            return pa.types.is_string(series.dtype.pyarrow_dtype) or pa.types.is_large_string(
-                series.dtype.pyarrow_dtype
+            return (
+                pa.types.is_string(series.dtype.pyarrow_dtype)
+                or pa.types.is_large_string(series.dtype.pyarrow_dtype)
             )
     except (ImportError, AttributeError):
         pass
@@ -149,9 +157,9 @@ def test_ingest_all_columns_string_type(ingest_stats, bronze_dir):
     Bronze = aucune transformation métier.
     Toutes les colonnes métier doivent être de type chaîne.
 
-    PyArrow peut produire 'string[pyarrow]' au lieu de 'object' :
-    les deux sont acceptés car ils indiquent qu'aucun cast numérique
-    ou temporel n'a été appliqué.
+    Les dtypes 'object', 'str', 'string', 'string[pyarrow]' sont tous acceptés.
+    Pandas 2.x représente pd.StringDtype() comme 'str' (changement de comportement
+    par rapport aux versions antérieures qui retournaient 'string').
     """
     meta_cols = {"_ingested_at", "_source_file", "_source_silo", "_run_id"}
     for silo_folder in ("erp", "crm"):
