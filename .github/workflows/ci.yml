@@ -1,0 +1,52 @@
+# CI — Strategic Lakehouse
+# Déclenchement : push et pull_request sur main
+# Jobs : lint (ruff) + tests (pytest + coverage)
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    name: Lint & Tests (Python 3.11)
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── 1. Checkout ────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Python 3.11 ─────────────────────────────────────────────────────
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      # ── 3. Dépendances ─────────────────────────────────────────────────────
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # ── 4. Lint ruff ───────────────────────────────────────────────────────
+      - name: Lint with ruff
+        run: |
+          ruff check src/ api/ tests/
+
+      # ── 5. Tests pytest + couverture ───────────────────────────────────────
+      - name: Run tests with coverage
+        run: |
+          pytest tests/ -v --tb=short --cov=src --cov=api --cov-report=term-missing --cov-report=xml
+
+      # ── 6. Upload coverage (artifact + Codecov optionnel) ──────────────────
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 7
