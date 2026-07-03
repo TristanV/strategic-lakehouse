@@ -6,7 +6,7 @@ Exécute une suite d'expectations sur les Parquet Silver :
   - dim_products : unit_price > 0, product_id non-null + unique,
                    product_name non-null
 
-Compatible GX Core v1.x (pandas_default datasource + Validator).
+Compatible GX Core v1.x — Validator via EphemeralDataContext + pandas datasource.
 Rapport HTML généré dans reports/gx/{table}_{timestamp}.html
 
 Auteur : Tristan Vanrullen — 2026
@@ -19,7 +19,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import pandas as pd
-import great_expectations as gx
 
 logger = logging.getLogger(__name__)
 
@@ -31,15 +30,48 @@ logger = logging.getLogger(__name__)
 def _get_validator(df: pd.DataFrame, suite_name: str):
     """Crée un Validator GX Core 1.x sur un DataFrame Pandas.
 
-    - Utilise le DataContext par défaut (fichier ou éphémère)
-    - S'appuie sur la datasource intégrée `pandas_default`
-    - Retourne un Validator utilisable directement avec les méthodes expect_*
+    Chemin GX 1.x :
+      EphemeralDataContext
+        → add_pandas_datasource
+        → add_dataframe_asset
+        → build_batch_request(dataframe=df)
+        → add_or_update_expectation_suite
+        → context.get_validator(batch_request, expectation_suite_name)
+
+    Le Validator retourné expose les méthodes expect_* standard.
     """
     import great_expectations as gx
+    from great_expectations.core.batch import RuntimeBatchRequest
 
-    context = gx.get_context()
-    validator = context.data_sources.pandas_default.read_dataframe(df)
-    validator.expectation_suite_name = suite_name
+    context = gx.get_context(mode="ephemeral")
+
+    datasource_config = {
+        "name": f"ds_{suite_name}",
+        "class_name": "Datasource",
+        "execution_engine": {"class_name": "PandasExecutionEngine"},
+        "data_connectors": {
+            "runtime_connector": {
+                "class_name": "RuntimeDataConnector",
+                "batch_identifiers": ["batch_id"],
+            }
+        },
+    }
+    context.add_datasource(**datasource_config)
+
+    context.add_or_update_expectation_suite(expectation_suite_name=suite_name)
+
+    batch_request = RuntimeBatchRequest(
+        datasource_name=f"ds_{suite_name}",
+        data_connector_name="runtime_connector",
+        data_asset_name=suite_name,
+        runtime_parameters={"batch_data": df},
+        batch_identifiers={"batch_id": "default"},
+    )
+
+    validator = context.get_validator(
+        batch_request=batch_request,
+        expectation_suite_name=suite_name,
+    )
     return validator
 
 
