@@ -6,7 +6,7 @@ Exécute une suite d'expectations sur les Parquet Silver :
   - dim_products : unit_price > 0, product_id non-null + unique,
                    product_name non-null
 
-Compatible GX v1.x (API Fluent — EphemeralDataContext + Validator).
+Compatible GX Core v1.x (pandas_default datasource + Validator).
 Rapport HTML généré dans reports/gx/{table}_{timestamp}.html
 
 Auteur : Tristan Vanrullen — 2026
@@ -29,25 +29,17 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 def _get_validator(df: pd.DataFrame, suite_name: str):
-    """Crée un Validator GX v1.x éphémère sur un DataFrame Pandas.
+    """Crée un Validator GX Core 1.x sur un DataFrame Pandas.
 
-    GX v1.x remplace PandasDataset par un pipeline :
-      context → datasource → data_asset → batch_request → validator
-    On utilise un EphemeralDataContext (pas de filesystem GX nécessaire).
+    - Utilise le DataContext par défaut (fichier ou éphémère)
+    - S'appuie sur la datasource intégrée `pandas_default`
+    - Retourne un Validator utilisable directement avec les méthodes expect_*
     """
-    context = gx.get_context(mode="ephemeral")
+    import great_expectations as gx
 
-    datasource = context.sources.add_pandas(
-        name=f"ds_{suite_name}"
-    )
-    data_asset = datasource.add_dataframe_asset(name=f"asset_{suite_name}")
-    batch_request = data_asset.build_batch_request(dataframe=df)
-
-    suite = context.add_expectation_suite(expectation_suite_name=suite_name)
-    validator = context.get_validator(
-        batch_request=batch_request,
-        expectation_suite_name=suite_name,
-    )
+    context = gx.get_context()
+    validator = context.data_sources.pandas_default.read_dataframe(df)
+    validator.expectation_suite_name = suite_name
     return validator
 
 
@@ -115,13 +107,14 @@ def _run_suite(
 
     for rule in suite_rules:
         expectation_fn = getattr(validator, rule["fn"])
-        result = expectation_fn(**rule["kwargs"])
-        passed = result["success"]
+        gx_result = expectation_fn(**rule["kwargs"])
+        passed = gx_result["success"]
+        detail = getattr(gx_result, "result", {})
         results.append({
             "expectation": rule["fn"],
             "kwargs": rule["kwargs"],
             "success": passed,
-            "result": result.result if hasattr(result, "result") else {},
+            "result": detail,
         })
         status = "✅" if passed else "❌"
         logger.info("[GX] %s %s  %s", status, table_name, rule["fn"])
@@ -194,7 +187,7 @@ def _write_html_report(table_name: str, results: list[dict], path: Path) -> None
       {rows_html}
     </tbody>
   </table>
-  <footer>Généré par src/quality/gx_checkpoint.py · GX v1.x API · Tristan Vanrullen · 2026</footer>
+  <footer>Généré par src/quality/gx_checkpoint.py · GX Core v1.x API · Tristan Vanrullen · 2026</footer>
 </body>
 </html>
 """
@@ -256,7 +249,7 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     parser = argparse.ArgumentParser(
-        description="Great Expectations v1.x — Checkpoint couche Silver"
+        description="Great Expectations Core v1.x — Checkpoint couche Silver"
     )
     parser.add_argument(
         "--silver-dir",
