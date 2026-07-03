@@ -6,7 +6,7 @@ Exécute une suite d'expectations sur les Parquet Silver :
   - dim_products : unit_price > 0, product_id non-null + unique,
                    product_name non-null
 
-Compatible GX Core v1.x — Validator via EphemeralDataContext + pandas datasource.
+Compatible GX Core v1.x — API Fluent pure (sources.add_pandas).
 Rapport HTML généré dans reports/gx/{table}_{timestamp}.html
 
 Auteur : Tristan Vanrullen — 2026
@@ -30,43 +30,27 @@ logger = logging.getLogger(__name__)
 def _get_validator(df: pd.DataFrame, suite_name: str):
     """Crée un Validator GX Core 1.x sur un DataFrame Pandas.
 
-    Chemin GX 1.x :
-      EphemeralDataContext
-        → add_pandas_datasource
-        → add_dataframe_asset
-        → build_batch_request(dataframe=df)
-        → add_or_update_expectation_suite
-        → context.get_validator(batch_request, expectation_suite_name)
+    Chemin API Fluent GX 1.x (la seule API acceptée par EphemeralDataContext) :
+      context.sources.add_pandas(name)          → PandasDatasource
+        .add_dataframe_asset(name)              → DataFrameAsset
+        .build_batch_request(dataframe=df)      → BatchRequest
+      context.add_or_update_expectation_suite(suite_name)
+      context.get_validator(batch_request, suite_name) → Validator
 
-    Le Validator retourné expose les méthodes expect_* standard.
+    Le Validator retourné expose toutes les méthodes expect_*.
+    Note : context.sources.add_pandas() est l'API Fluent GX 1.x — différente
+    de context.sources.add_pandas() de GX 0.17 (même nom, signature identique,
+    mais retourne un FluentDatasource compatible avec context.get_validator).
     """
     import great_expectations as gx
-    from great_expectations.core.batch import RuntimeBatchRequest
 
     context = gx.get_context(mode="ephemeral")
 
-    datasource_config = {
-        "name": f"ds_{suite_name}",
-        "class_name": "Datasource",
-        "execution_engine": {"class_name": "PandasExecutionEngine"},
-        "data_connectors": {
-            "runtime_connector": {
-                "class_name": "RuntimeDataConnector",
-                "batch_identifiers": ["batch_id"],
-            }
-        },
-    }
-    context.add_datasource(**datasource_config)
+    datasource = context.sources.add_pandas(name=f"ds_{suite_name}")
+    asset = datasource.add_dataframe_asset(name=f"asset_{suite_name}")
+    batch_request = asset.build_batch_request(dataframe=df)
 
     context.add_or_update_expectation_suite(expectation_suite_name=suite_name)
-
-    batch_request = RuntimeBatchRequest(
-        datasource_name=f"ds_{suite_name}",
-        data_connector_name="runtime_connector",
-        data_asset_name=suite_name,
-        runtime_parameters={"batch_data": df},
-        batch_identifiers={"batch_id": "default"},
-    )
 
     validator = context.get_validator(
         batch_request=batch_request,
@@ -219,7 +203,7 @@ def _write_html_report(table_name: str, results: list[dict], path: Path) -> None
       {rows_html}
     </tbody>
   </table>
-  <footer>Généré par src/quality/gx_checkpoint.py · GX Core v1.x API · Tristan Vanrullen · 2026</footer>
+  <footer>Généré par src/quality/gx_checkpoint.py · GX Core v1.x Fluent API · Tristan Vanrullen · 2026</footer>
 </body>
 </html>
 """
